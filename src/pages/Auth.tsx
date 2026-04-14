@@ -1,14 +1,58 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "motion/react";
 
+const GOOGLE_CLIENT_ID = ((import.meta as any).env?.VITE_GOOGLE_CLIENT_ID as string | undefined) || "102110764491-lasbljebinmrqebd8d82t5fp21ltbugq.apps.googleusercontent.com";
+
 export default function Auth() {
   const [isLogin, setIsLogin] = useState(true);
+  const googleButtonRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const handleGoogleResponse = (response: any) => {
+      console.log("Google sign-in response", response);
+      // TODO: handle the credential response and sign the user in.
+    };
+
+    const initializeGoogleSignIn = () => {
+      const google = (window as any).google;
+      if (!google?.accounts?.id || !googleButtonRef.current) return;
+
+      google.accounts.id.initialize({
+        client_id: GOOGLE_CLIENT_ID,
+        callback: handleGoogleResponse,
+      });
+      google.accounts.id.renderButton(googleButtonRef.current, {
+        theme: "outline",
+        size: "large",
+        width: "100%",
+      });
+    };
+
+    if ((window as any).google?.accounts?.id) {
+      initializeGoogleSignIn();
+      return;
+    }
+
+    const scriptId = "google-identity-script";
+    if (document.getElementById(scriptId)) {
+      document.getElementById(scriptId)?.addEventListener("load", initializeGoogleSignIn);
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = "https://accounts.google.com/gsi/client";
+    script.async = true;
+    script.defer = true;
+    script.id = scriptId;
+    script.onload = initializeGoogleSignIn;
+    document.body.appendChild(script);
+  }, []);
 
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center py-20 px-6">
       <div className="w-full max-w-md">
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           className="bg-white p-8 rounded-[2rem] shadow-xl shadow-slate-200/50 border border-slate-100"
@@ -26,18 +70,18 @@ export default function Auth() {
             {!isLogin && (
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1.5">Full Name</label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
                   placeholder="John Doe"
                 />
               </div>
             )}
-            
+
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1.5">Email Address</label>
-              <input 
-                type="email" 
+              <input
+                type="email"
                 className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
                 placeholder="you@example.com"
               />
@@ -45,8 +89,8 @@ export default function Auth() {
 
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1.5">Password</label>
-              <input 
-                type="password" 
+              <input
+                type="password"
                 className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
                 placeholder="••••••••"
               />
@@ -55,11 +99,19 @@ export default function Auth() {
             <button className="w-full bg-slate-900 hover:bg-purple-600 text-white py-3.5 rounded-xl font-medium transition-colors mt-2">
               {isLogin ? "Sign In" : "Create Account"}
             </button>
+
+            <div className="flex items-center gap-3 mt-3 text-slate-400 text-sm">
+              <span className="flex-1 h-px bg-slate-200" />
+              <span>Or continue with</span>
+              <span className="flex-1 h-px bg-slate-200" />
+            </div>
+
+            <div ref={googleButtonRef} />
           </form>
 
           <div className="mt-8 text-center text-sm text-slate-600">
             {isLogin ? "Don't have an account? " : "Already have an account? "}
-            <button 
+            <button
               onClick={() => setIsLogin(!isLogin)}
               className="text-purple-600 font-medium hover:underline"
             >
@@ -67,7 +119,7 @@ export default function Auth() {
             </button>
           </div>
         </motion.div>
-        
+
         <div className="mt-6 text-center">
           <Link to="/" className="text-sm text-slate-500 hover:text-slate-900 transition-colors">
             &larr; Back to Home
