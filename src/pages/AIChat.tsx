@@ -1,18 +1,18 @@
 import { useState, useRef, useEffect } from "react";
-import { GoogleGenAI } from "@google/genai";
 import { Send, Bot, User, Loader2 } from "lucide-react";
 
-// Initialize the Gemini API client
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+// Together AI API configuration
+const TOGETHER_API_URL = "https://api.together.xyz/v1/chat/completions";
+const MODEL = "meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo";
 
 interface Message {
-  role: "user" | "model";
+  role: "user" | "assistant";
   content: string;
 }
 
 export default function AIChat() {
   const [messages, setMessages] = useState<Message[]>([
-    { role: "model", content: "Hello! I'm the Digital Empowerment Collective AI assistant. How can I help you learn about digital skills, our programmes, or technology today?" }
+    { role: "assistant", content: "Hello! I'm the Digital Empowerment Collective AI assistant. How can I help you learn about digital skills, our programmes, or technology today?" }
   ]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -36,28 +36,40 @@ export default function AIChat() {
     setIsLoading(true);
 
     try {
-      // Format history for the API
-      const history = messages.map(msg => ({
-        role: msg.role,
-        parts: [{ text: msg.content }]
-      }));
+      // Prepare messages for API
+      const systemMessage = {
+        role: "system",
+        content: "You are a helpful AI assistant for the Digital Empowerment Collective. You help young people learn about digital skills, web development, graphic design, digital marketing, and AI. Be encouraging, educational, and concise."
+      };
+      
+      const apiMessages = [systemMessage, ...messages, { role: "user", content: userMessage }];
 
-      // Create a chat session
-      const chat = ai.chats.create({
-        model: "gemini-2.5-flash",
-        config: {
-          systemInstruction: "You are a helpful AI assistant for the Digital Empowerment Collective. You help young people learn about digital skills, web development, graphic design, digital marketing, and AI. Be encouraging, educational, and concise.",
+      // Call Together AI API
+      const response = await fetch(TOGETHER_API_URL, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${process.env.TOGETHER_API_KEY}`,
+          "Content-Type": "application/json",
         },
-        history: history,
+        body: JSON.stringify({
+          model: MODEL,
+          messages: apiMessages,
+          max_tokens: 1024,
+          temperature: 0.7,
+        }),
       });
 
-      // Send the new message
-      const response = await chat.sendMessage({ message: userMessage });
-      
-      setMessages((prev) => [...prev, { role: "model", content: response.text }]);
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const assistantMessage = data.choices[0].message.content;
+
+      setMessages((prev) => [...prev, { role: "assistant", content: assistantMessage }]);
     } catch (error) {
       console.error("Chat error:", error);
-      setMessages((prev) => [...prev, { role: "model", content: "Sorry, I encountered an error. Please try again." }]);
+      setMessages((prev) => [...prev, { role: "assistant", content: "Sorry, I encountered an error. Please try again." }]);
     } finally {
       setIsLoading(false);
     }
@@ -76,7 +88,7 @@ export default function AIChat() {
           <div className="flex-1 overflow-y-auto p-6 space-y-6">
             {messages.map((msg, idx) => (
               <div key={idx} className={`flex gap-4 ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                {msg.role === "model" && (
+                {msg.role === "assistant" && (
                   <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center shrink-0">
                     <Bot className="w-5 h-5 text-purple-600" />
                   </div>
